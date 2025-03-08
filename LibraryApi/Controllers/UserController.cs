@@ -1,4 +1,5 @@
-﻿using LibraryApi.Data;
+﻿using LibraryApi.Application.Interfaces;
+using LibraryApi.Data;
 using LibraryApi.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -8,20 +9,21 @@ namespace LibraryApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController(LibraryDbContext context) : ControllerBase
+    public class UserController(IUserService userService) : ControllerBase
     {
-        private readonly LibraryDbContext _context = context;
+        private readonly IUserService _userService = userService;
+
 
         [HttpGet]
         public async Task<ActionResult<List<User>>> Get()
         {
-            return Ok(await _context.Users.ToListAsync());
+            return Ok(_userService.GetAllAsync());
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<User>> Get(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _userService.GetByIdAsync(id);
             if (user is null)
                 return NotFound();
             return Ok(user);
@@ -33,8 +35,7 @@ namespace LibraryApi.Controllers
             if(user == null)
                 return BadRequest();
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _userService.CreateAsync(user);
 
             return Ok(user);
         }
@@ -42,16 +43,7 @@ namespace LibraryApi.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<User>> Put(User user,int id)
         {
-            var newUser = await _context.Users.FindAsync(id);
-            if(newUser is null)
-                return NotFound();
-
-            newUser.Name = user.Name;
-            newUser.Email = user.Email;
-            newUser.Username = user.Username;
-            newUser.Password = user.Password;
-
-            await _context.SaveChangesAsync();
+            await _userService.UpdateAsync(id, user);
 
             return NoContent();
         }
@@ -59,13 +51,7 @@ namespace LibraryApi.Controllers
         [HttpDelete]
         public async Task<ActionResult<User>> Delete(int id)
         {
-            var user = _context.Users.Find(id);
-            if (user is null) 
-                return NotFound();
-
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-
+            await _userService.DeleteAsync(id);
 
             return NoContent();
         }
