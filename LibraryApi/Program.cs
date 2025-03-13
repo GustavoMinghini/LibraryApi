@@ -10,29 +10,28 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Configuration.AddEnvironmentVariables();
 
-builder.Services.AddDbContext<LibraryDbContext>(options => 
-        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+
+builder.Services.AddDbContext<LibraryDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll",
-        policy =>
-        {
-            policy.WithOrigins("https://localhost:7015/scalar/v1", "https://localhost:7015") // Substitua pela URL do seu frontend
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
-                  .AllowCredentials();
-        });
-});
 
 builder.Services.AddAuthentication(options =>
 {
@@ -43,28 +42,30 @@ builder.Services.AddAuthentication(options =>
 .AddCookie()
 .AddGoogle(options =>
 {
-    options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-    options.CallbackPath = "/api/auth/callback";
+    options.ClientId = builder.Configuration.GetValue<string>("GOOGLE_CLIENT_ID");
+    options.ClientSecret = builder.Configuration.GetValue<string>("GOOGLE_CLIENT_SECRET");
+    options.CallbackPath = "/api/auth/callback"; 
 });
 
 
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
 
 var app = builder.Build();
-app.UseCors("AllowAll");
 
-// Configure the HTTP request pipeline.
+
+app.UseCors("AllowAll");
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+
+
 if (app.Environment.IsDevelopment())
 {
     app.MapScalarApiReference();
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-
 app.Run();
+
